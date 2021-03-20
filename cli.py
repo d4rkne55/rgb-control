@@ -1,9 +1,8 @@
 import sys
+import inspect
 from device_detector import DeviceDetector
 from controller import Controller
-from config.packets.MSI import * # TODO
 from effects.base import Color
-import inspect
 import helper.debug as debug
 
 detector = DeviceDetector()
@@ -16,7 +15,7 @@ print(f'The HID API detected {len(detected)} devices, ', end='')
 if len(supported) > 0:
     print('of which the following are supported:')
 
-    for i, device in enumerate(detector.get_supported_devices()):
+    for i, device in enumerate(supported):
         print(f'{i}\t{device.vendor_name}\t{device.display_name}')
 else:
     print('but none of them are supported.')
@@ -39,7 +38,7 @@ print('Now you can set colors and other information for all lighting zones of th
 print('It will loop through every zone and ask you whether you want to configure it. Press Enter if you want to cancel/exit.')
 print()
 
-zones = []
+zones_data = {}
 
 for zone_name in device.zones:
     answer = input(f'Configure "{zone_name}" (y/n): ')
@@ -48,39 +47,38 @@ for zone_name in device.zones:
         exit(0)
 
     if answer.lower() == 'n':
-        zones.append(controller.get_default_zone())
+        # TODO
+        zones_data[zone_name] = controller.get_default_zone_data()
         continue
 
-    zoneProps = controller.get_zone_properties()
-    zoneData = []
+    zone_props = controller.get_zone_properties()
+    zones_data[zone_name] = []
 
-    for prop in zoneProps:
-        propType = zoneProps[prop]
+    for prop in zone_props:
+        propType = zone_props[prop]
 
         print('    ', end='')
 
         # custom types are considered a function, so check if it's a class first
         if inspect.isclass(propType) and issubclass(propType, Color):
-            userInput = map(int, input(f'{prop} (r, g, b): ').split(','))
-            userInput = Color(*userInput)
+            user_input = map(int, input(f'{prop} (r, g, b): ').split(','))
+            user_input = Color(*user_input)
         else:
-            userInput = int(input(f'{prop}: '))
+            user_input = int(input(f'{prop}: '))
 
-        zoneData.append(userInput)
+        zones_data[zone_name].append(user_input)
 
-    zones.append(Zone(*zoneData))
-
-packet = DataPacket(REPORT_ID, *zones, 0)
+packet = controller.get_packet_from_data(zones_data)
 packet_bytes = packet.to_binary()
 
 print()
 # print(packet_bytes.hex())
 
-if len(packet_bytes) != REPORT_LENGTH:
+if controller.check_binary_packet(packet_bytes) == False:
     print('Generated data packet doesn\'t match expected report size!')
     exit(1)
 
-# current_state = device.hid_handle.get_feature_report(REPORT_ID, REPORT_LENGTH)
+# current_state = controller.get_device_state()
 # print(bytearray(current_state).hex())
 
 answer = input('Configuration done. Send data to device? (y/n) ')
@@ -88,4 +86,4 @@ answer = input('Configuration done. Send data to device? (y/n) ')
 if answer.lower() != 'y':
     exit(0)
 
-device.hid_handle.send_feature_report(packet_bytes)
+controller.send_to_device(packet_bytes)

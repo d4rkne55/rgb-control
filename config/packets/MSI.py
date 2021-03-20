@@ -6,7 +6,7 @@ REPORT_LENGTH = 162
 
 @dataclass
 class DataPacket(Struct):
-    report_id: UChar# = REPORT_ID
+    report_id: UChar
     jrgb_1: Zone
     jrainbow_1: Zone
     # the following 2 are probably jcorsair stuff
