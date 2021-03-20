@@ -33,6 +33,7 @@ class DeviceDetector:
         supported = []
         for device in self.devices:
             if device.vendor_id in self.registered and device.product_id in self.registered[device.vendor_id]:
+                device.display_name = self.registered[device.vendor_id][device.product_id].name
                 supported.append(device)
 
         return supported
